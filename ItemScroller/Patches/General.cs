@@ -1,7 +1,9 @@
 ﻿using HarmonyLib;
+using System.Collections;
 using UnityEngine;
 using Zorro.ControllerSupport;
 using Zorro.Core;
+using static Zorro.ControllerSupport.Rumble.RumbleClip;
 
 namespace ItemScroller.Patches
 {
@@ -25,14 +27,12 @@ namespace ItemScroller.Patches
                 !__instance.character.data.passedOut)
             {
                 Item item = __instance.character.data.currentItem;
-                bool isMouseInput = InputHandler.GetCurrentUsedInputScheme() == InputScheme.KeyboardMouse;
-
-                if (item.OnScrolled != null || (isMouseInput && item.OnScrolledMouseOnly != null))
+                
+                if (hasScrollFunction(item))
                 {
-                    return;
+                   // return;
                 }
             }
-
 
 
             float scrollDelta = __instance.character.input.scrollInput;
@@ -41,54 +41,91 @@ namespace ItemScroller.Patches
             {
                 if (Mathf.Abs(scrollDelta) >= ItemScroller.Instance.ScrollThreshold.Value)
                 {
-                    int steps = Mathf.Clamp(Mathf.FloorToInt(scrollDelta / ItemScroller.Instance.ScrollThreshold.Value),-1,1);
+                    int steps = Mathf.Clamp(Mathf.FloorToInt(scrollDelta / ItemScroller.Instance.ScrollThreshold.Value), -1, 1);
                     bool forward = steps == 1 ? false : true;
+                    var temp = General.Next(forward, __instance.lastSelectedSlot.Value, __instance);
 
-                   
-                    var temp = Next(forward, __instance.lastSelectedSlot.Value, __instance);
+                    byte? nextSlot = temp.Item1;
 
-                    byte nextSlot = temp.Item1;
-                    bool failed = !temp.Item2;
-
-                    if (failed)
+                    if (!temp.Item2 || nextSlot == null)
                     {
                         ItemScroller.Logger.LogDebug("No empty slot found");
-
                         return;
                     }
 
                     __instance.lastSwitched = Time.time;
                     __instance.timesSwitchedRecently++;
 
-                    __instance.EquipSlot(Optionable<byte>.Some(nextSlot));
+                    __instance.EquipSlot(Optionable<byte>.Some(nextSlot.Value));
                 }
             }
         }
 
-        static (byte, bool) Next(bool forward, byte target, CharacterItems instance)
+       
+
+        static bool hasScrollFunction(Item? item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            bool isMouseInput = InputHandler.GetCurrentUsedInputScheme() == InputScheme.KeyboardMouse;
+
+            return item.OnScrolled != null || (isMouseInput && item.OnScrolledMouseOnly != null);
+        }
+
+
+        public static (byte?, bool) Next(bool forward, byte target, CharacterItems instance)
         {
             bool hasBackPack = !instance.character.player.GetItemSlot(3).IsEmpty();
-            const byte regularSlotsCount = 3; 
-            byte slotsToCheck = (byte)(hasBackPack ? 3 : 2);
-
+            const byte regularSlotsCount = 3;
+            byte slotsToCheck = (byte)(hasBackPack ? 4 : 3);
 
             if (target >= slotsToCheck || (target == 3 && !hasBackPack))
             {
-                target = 0; 
+                target = 0;
             }
 
-            
-            bool IsValidAndNonEmpty(byte slot)
-            {  
+            bool IsValidSlot(byte slot)
+            {
                 if (slot == 3) return hasBackPack;
-                if (slot >= regularSlotsCount) return false; 
-                return !instance.character.player.itemSlots[slot].IsEmpty();
+                if (slot >= regularSlotsCount) return false;
+
+                var itemSlot = instance.character.player.itemSlots[slot];
+                if (itemSlot.IsEmpty()) return false;
+
+                Item item = itemSlot.prefab;
+
+                bool ScrollFunctionPresent = false;
+
+                item.GetItemActions();
+                foreach (ItemActionBase iab in item.itemActions)
+                {
+                    iab.item = item;
+                    iab.Subscribe();
+
+                    if (hasScrollFunction(item))
+                    {
+                        ScrollFunctionPresent = true;
+                    }
+
+                    iab.Unsubscribe();
+                    iab.item = null;
+                }
+                item.itemActions = null;
+
+
+                ItemScroller.Logger.LogError(item.OnScrolled?.Method);
+                ItemScroller.Logger.LogError(item.OnScrolledMouseOnly?.Method);
+
+                return !ScrollFunctionPresent;
             }
+
 
             byte current = target;
-
             int attempts = 0;
-            int maxAttempts = slotsToCheck;
+            int maxAttempts = slotsToCheck + 1;
 
             do
             {
@@ -98,7 +135,7 @@ namespace ItemScroller.Patches
                 }
                 else
                 {
-                    current = (byte)((current - 1 + slotsToCheck) % slotsToCheck + 1);
+                    current = (byte)((current - 1 + slotsToCheck) % slotsToCheck);
                 }
 
                 if (current == 3 && !hasBackPack)
@@ -107,7 +144,7 @@ namespace ItemScroller.Patches
                     continue;
                 }
 
-                if (IsValidAndNonEmpty(current) && current != target)
+                if (IsValidSlot(current) && target != current)
                 {
                     return (current, true);
                 }
@@ -115,9 +152,7 @@ namespace ItemScroller.Patches
                 attempts++;
             } while (attempts < maxAttempts);
 
-            //No empty slot
-            return (target, false);
+            return (null, false);
         }
-
     }
 }
