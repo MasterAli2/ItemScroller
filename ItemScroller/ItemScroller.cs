@@ -33,7 +33,7 @@ namespace ItemScroller
             ScrollThreshold = Config.Bind("Scrolling",
                                           "ScrollThreshold",
                                           1f,
-                                          "The minimum amount of scroll before the being able to scroll beetween items");
+                                          "The minimum amount of scroll before being able to scroll beetween items");
 
             Logger.LogInfo($"{GUID} v{VERSION} has loaded!");
         }
