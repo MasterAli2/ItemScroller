@@ -35,14 +35,20 @@ namespace ItemScroller.Patches
             }
 
 
+
             float scrollDelta = __instance.character.input.scrollInput;
 
             if (scrollDelta != 0)
             {
                 if (Mathf.Abs(scrollDelta) >= ItemScroller.Instance.ScrollThreshold.Value)
                 {
-                    int steps = Mathf.Clamp(Mathf.FloorToInt(scrollDelta / ItemScroller.Instance.ScrollThreshold.Value), -1, 1);
-                    bool forward = steps == 1 ? false : true;
+                    bool forward = true;
+
+                    if (Mathf.Sign(scrollDelta) == 1)
+                    {
+                        forward = false;
+                    }
+
                     var temp = General.Next(forward, __instance.lastSelectedSlot.Value, __instance);
 
                     byte? nextSlot = temp.Item1;
