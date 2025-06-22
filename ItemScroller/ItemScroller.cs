@@ -7,8 +7,6 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using ItemScroller.Patches;
-using UnityEngine;
-using Zorro.Core.Serizalization;
 
 
 namespace ItemScroller
