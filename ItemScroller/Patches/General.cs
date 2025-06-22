@@ -1,10 +1,7 @@
 ﻿using HarmonyLib;
-using System.Collections;
-using System.Linq;
 using UnityEngine;
 using Zorro.ControllerSupport;
 using Zorro.Core;
-using static Zorro.ControllerSupport.Rumble.RumbleClip;
 
 namespace ItemScroller.Patches
 {
