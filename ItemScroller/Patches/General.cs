@@ -82,22 +82,20 @@ namespace ItemScroller.Patches
             {
                 return false;
             }
-            bool True = false;
 
             bool isMouseInput = InputHandler.GetCurrentUsedInputScheme() == InputScheme.KeyboardMouse;
 
-            if (item.OnScrolled != null || (isMouseInput && item.OnScrolledMouseOnly != null)) True = true;
+            if (item.OnScrolled != null || (isMouseInput && item.OnScrolledMouseOnly != null)) return true;
 
             foreach (ItemComponent component in item.itemComponents)
             {
                 if (component is RopeSpool)
                 {
-                    True = true;
-                    break;
+                    return true;
                 }
             }
 
-            return True;
+            return false;
         }
 
 
@@ -107,7 +105,6 @@ namespace ItemScroller.Patches
             if (!instance.character.player.itemSlots.WithinRange(slot)) return null;
 
             return instance.character.player.itemSlots[slot];
-            
         }
 
         public static (byte?, bool) Next(bool forward, byte target, CharacterItems instance)
@@ -191,14 +188,6 @@ namespace ItemScroller.Patches
             } while (attempts < maxAttempts);
 
             return (null, false);
-        }
-
-
-        internal static bool SubscribePrefix(ItemActionBase __instance)
-        {
-            if (__instance.item.holderCharacter != Character.localCharacter) return true;
-
-            return false;
         }
     }
 }
