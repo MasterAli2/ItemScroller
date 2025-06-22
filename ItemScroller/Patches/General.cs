@@ -121,10 +121,6 @@ namespace ItemScroller.Patches
                 }
                 item.itemActions = null;
 
-
-                ItemScroller.Logger.LogError(item.OnScrolled?.Method);
-                ItemScroller.Logger.LogError(item.OnScrolledMouseOnly?.Method);
-
                 return !ScrollFunctionPresent;
             }
 
