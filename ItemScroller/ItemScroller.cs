@@ -1,9 +1,13 @@
 ﻿using System;
+using System.Collections;
+using System.Linq;
+using System.Reflection;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using ItemScroller.Patches;
+using UnityEngine;
 using Zorro.Core.Serizalization;
 
 
@@ -22,6 +26,7 @@ namespace ItemScroller
         public static ItemScroller Instance { get; private set; } = null!;
 
         public ConfigEntry<float> ScrollThreshold;
+        public ConfigEntry<float> MaxHoldTimeForScrollables;
 
         void Awake()
         {
@@ -32,8 +37,14 @@ namespace ItemScroller
 
             ScrollThreshold = Config.Bind("Scrolling",
                                           "ScrollThreshold",
-                                          1f,
+                                          0.75f,
                                           "The minimum amount of scroll before being able to scroll beetween items");
+
+            MaxHoldTimeForScrollables = Config.Bind("Scrolling",
+                                          "MaxHoldTime",
+                                          0.75f,
+                                          "The time (in seconds) that an item with a scroll function must be held before it cant be scrolled away from");
+
 
             Logger.LogInfo($"{GUID} v{VERSION} has loaded!");
         }

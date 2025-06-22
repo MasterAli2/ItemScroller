@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using System.Collections;
+using System.Linq;
 using UnityEngine;
 using Zorro.ControllerSupport;
 using Zorro.Core;
@@ -9,10 +10,17 @@ namespace ItemScroller.Patches
 {
     internal class General
     {
+        static float lastScrolled = 0f;
+
         [HarmonyPatch(typeof(CharacterItems), nameof(CharacterItems.DoSwitching))]
         [HarmonyPrefix]
         static void _(CharacterItems __instance)
         {
+            if (!__instance.character.IsLocal) return;
+
+            lastScrolled = Mathf.Clamp(lastScrolled - Time.deltaTime, 0, ItemScroller.Instance.MaxHoldTimeForScrollables.Value);
+
+
             if (!__instance.character.IsLocal ||
                 !__instance.character.CanDoInput() ||
                 !(Time.time > __instance.lastEquippedSlotTime + __instance.equippedSlotCooldown) ||
@@ -27,10 +35,10 @@ namespace ItemScroller.Patches
                 !__instance.character.data.passedOut)
             {
                 Item item = __instance.character.data.currentItem;
-                
+
                 if (hasScrollFunction(item))
                 {
-                   // return;
+                    // return;
                 }
             }
 
@@ -62,12 +70,14 @@ namespace ItemScroller.Patches
                     __instance.lastSwitched = Time.time;
                     __instance.timesSwitchedRecently++;
 
+                    lastScrolled = ItemScroller.Instance.MaxHoldTimeForScrollables.Value;
+
                     __instance.EquipSlot(Optionable<byte>.Some(nextSlot.Value));
                 }
             }
         }
 
-       
+
 
         static bool hasScrollFunction(Item? item)
         {
@@ -75,15 +85,42 @@ namespace ItemScroller.Patches
             {
                 return false;
             }
+            bool True = false;
 
             bool isMouseInput = InputHandler.GetCurrentUsedInputScheme() == InputScheme.KeyboardMouse;
 
-            return item.OnScrolled != null || (isMouseInput && item.OnScrolledMouseOnly != null);
+            if (item.OnScrolled != null || (isMouseInput && item.OnScrolledMouseOnly != null)) True = true;
+
+            foreach (ItemComponent component in item.itemComponents)
+            {
+                if (component is RopeSpool)
+                {
+                    True = true;
+                    break;
+                }
+            }
+
+            return True;
         }
 
 
+
+        static ItemSlot? getItemSlot(byte slot, CharacterItems instance)
+        {
+            if (!instance.character.player.itemSlots.WithinRange(slot)) return null;
+
+            return instance.character.player.itemSlots[slot];
+            
+        }
+
         public static (byte?, bool) Next(bool forward, byte target, CharacterItems instance)
         {
+
+            if (lastScrolled == 0 && hasScrollFunction(instance.character.data.currentItem))
+            {
+                return (null, false);
+            }
+
             bool hasBackPack = !instance.character.player.GetItemSlot(3).IsEmpty();
             const byte regularSlotsCount = 3;
             byte slotsToCheck = (byte)(hasBackPack ? 4 : 3);
@@ -98,9 +135,10 @@ namespace ItemScroller.Patches
                 if (slot == 3) return hasBackPack;
                 if (slot >= regularSlotsCount) return false;
 
-                var itemSlot = instance.character.player.itemSlots[slot];
+                ItemSlot? itemSlot = getItemSlot(slot, instance);
                 if (itemSlot.IsEmpty()) return false;
 
+                /*
                 Item item = itemSlot.prefab;
 
                 bool ScrollFunctionPresent = false;
@@ -120,8 +158,9 @@ namespace ItemScroller.Patches
                     iab.item = null;
                 }
                 item.itemActions = null;
+                */
 
-                return !ScrollFunctionPresent;
+                return true;
             }
 
 
@@ -155,6 +194,14 @@ namespace ItemScroller.Patches
             } while (attempts < maxAttempts);
 
             return (null, false);
+        }
+
+
+        internal static bool SubscribePrefix(ItemActionBase __instance)
+        {
+            if (__instance.item.holderCharacter != Character.localCharacter) return true;
+
+            return false;
         }
     }
 }
